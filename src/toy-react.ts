@@ -22,6 +22,17 @@ export abstract class Component {
     }
 }
 
+class FuncComponent extends Component {
+    func: (attrs: {[key: string]: any}) => Component
+    constructor(func: () => Component) {
+        super()
+        this.func = func
+    }
+    render() {
+        return this.func({...this.props, children: this.children})
+    }
+}
+
 class ElementWrapper {
     root: HTMLElement
     constructor(type: string) {
@@ -41,8 +52,15 @@ class TextWrapper {
     }
 }
 
-export function createElement(type: (new () => Element) | string, attrs: { [key: string]: any }, ...children) {
-    const element = typeof type === 'string' ? new ElementWrapper(type) : new type
+export function createElement(type: (new () => Component) | (() => Component) | string, attrs: { [key: string]: any }, ...children) {
+    let element
+    if (typeof type === 'string') {
+        element = new ElementWrapper(type)
+    } else if (type.prototype instanceof Component) {
+        element = new (type as new () => Component)
+    } else {
+        element = new FuncComponent(type as (() => Component))
+    }
     for (let attr in attrs) {
         element.setAttribute(attr, attrs[attr])
     }
