@@ -1,0 +1,21 @@
+{
+  "name": "toy-react",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "webpack --config configs/webpack.config.js --watch",
+    "build": "webpack --config configs/webpack.config.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "html-webpack-plugin": "^4.4.1",
+    "ts-loader": "^8.0.3",
+    "webpack": "^4.44.1",
+    "webpack-cli": "^3.3.12"
+  },
+  "dependencies": {
+    "typescript": "^4.0.2"
+  }
+}
