@@ -2,7 +2,7 @@ const path = require('path')
 const fs = require('fs')
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const appDirectory = fs.realpathSync(process.cwd())
-const appSrc = path.resolve(appDirectory, 'src/index.ts')
+const appSrc = path.resolve(appDirectory, 'src/index.tsx')
 const appDist = path.resolve(appDirectory, 'dist')
 
 
@@ -15,8 +15,11 @@ module.exports = {
     },
     module: {
         rules: [
-            { test: /\.tsx?$/, loader: "ts-loader" }
+            { test: /\.tsx?$/, loader: "ts-loader", exclude: /node_modules/, }
         ]
+    },
+    resolve: {
+        extensions: ['.tsx', '.ts', '.js'],
     },
     optimization: {
         minimize: false
