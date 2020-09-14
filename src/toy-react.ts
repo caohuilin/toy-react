@@ -23,8 +23,14 @@ export abstract class Component<P = any, S = any> {
     }
 
     rerender() {
-        this._range.deleteContents()
-        this[RENDER_TO_DOM](this._range)
+        const oldRange = this._range
+        const range = document.createRange()
+        range.setStart(oldRange.startContainer, oldRange.startOffset)
+        range.setEnd(oldRange.startContainer, oldRange.startOffset)
+        this[RENDER_TO_DOM](range)
+
+        oldRange.setStart(range.endContainer, range.endOffset)
+        oldRange.deleteContents()
     }
 
     setState(newState: Partial<S>) {
@@ -58,10 +64,13 @@ class ElementWrapper {
         this.root = document.createElement(type)
     }
     setAttribute(key: string, value: any) {
-        if (key.match(/^on([\s\S]+)/)) {
+        if (key === 'className') {
+            this.root.setAttribute('class', value)
+        } else if (key.match(/^on([\s\S]+)/)) {
             this.root.addEventListener(RegExp.$1.replace(/^[\s\S]/, c => c.toLowerCase()), value)
+        } else {
+            this.root.setAttribute(key, value)
         }
-        this.root.setAttribute(key, value)
     }
     appendChild(component: Component) {
         const range = document.createRange()
@@ -100,8 +109,11 @@ export function createElement(type: (new () => Component) | (() => Component) | 
     }
     const insertChild = (children) => {
         for (let child of children) {
-            if (typeof child === 'string') {
-                child = new TextWrapper(child)
+            if (child === null) {
+                continue
+            }
+            if (typeof child === 'string' || typeof child === 'number') {
+                child = new TextWrapper(child.toString())
             }
             if (Array.isArray(child)) {
                 insertChild(child)
@@ -118,5 +130,5 @@ export function render(component: Component, parent: HTMLElement) {
     range.setStart(parent, 0)
     range.setEnd(parent, parent.childNodes.length)
     range.deleteContents()
-    component.render()[RENDER_TO_DOM](range)
+    component[RENDER_TO_DOM](range)
 }

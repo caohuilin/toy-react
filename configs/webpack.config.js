@@ -16,7 +16,7 @@ module.exports = {
     module: {
         rules: [
             { test: /\.tsx?$/, loader: "ts-loader", exclude: /node_modules/, },
-            { test: /\.less$/, use: [{ loader: 'css-loader' }, { loader: 'less-loader', options: { lessOptions: { strictMath: true, }, }, }] }
+            { test: /\.less$/, use: [{ loader: 'style-loader' }, { loader: 'css-loader' }, { loader: 'less-loader', options: { lessOptions: { strictMath: true, }, }, }] }
         ]
     },
     resolve: {
