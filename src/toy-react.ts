@@ -1,18 +1,14 @@
 
-export abstract class Component {
-    props = Object.create(null)
+const RENDER_TO_DOM = Symbol('render_to_dom')
+
+export abstract class Component<P = any, S = any> {
+    props: P = Object.create(null)
     children = []
     _root: null
+    _range: Range | null = null
+    state: S
 
     abstract render()
-
-    get root() {
-        if (!this._root) {
-            this._root = this.render().root
-        }
-        return this._root
-
-    }
 
     setAttribute(key: string, value: any) {
         this.props[key] = value
@@ -20,16 +16,39 @@ export abstract class Component {
     appendChild(component: Component) {
         this.children.push(component)
     }
+
+    [RENDER_TO_DOM](range: Range) {
+        this._range = range
+        this.render()[RENDER_TO_DOM](range)
+    }
+
+    rerender() {
+        this._range.deleteContents()
+        this[RENDER_TO_DOM](this._range)
+    }
+
+    setState(newState: Partial<S>) {
+        this.state = Object.assign({}, this.state || {}, newState) as S
+        this.rerender()
+    }
 }
 
+type PropsWithChildren<P> = P & { children?: Component };
+
+interface FunctionComponent<P = {}> {
+    (props: PropsWithChildren<P>, context?: any): Element | null;
+}
+
+export type SFC<P = {}> = FunctionComponent<P>;
+
 class FuncComponent extends Component {
-    func: (attrs: {[key: string]: any}) => Component
+    func: (attrs: { [key: string]: any }) => Component
     constructor(func: () => Component) {
         super()
         this.func = func
     }
     render() {
-        return this.func({...this.props, children: this.children})
+        return this.func({ ...this.props, children: this.children })
     }
 }
 
@@ -39,16 +58,31 @@ class ElementWrapper {
         this.root = document.createElement(type)
     }
     setAttribute(key: string, value: any) {
+        if (key.match(/^on([\s\S]+)/)) {
+            this.root.addEventListener(RegExp.$1.replace(/^[\s\S]/, c => c.toLowerCase()), value)
+        }
         this.root.setAttribute(key, value)
     }
     appendChild(component: Component) {
-        this.root.appendChild(component.root)
+        const range = document.createRange()
+        range.setStart(this.root, this.root.childNodes.length)
+        range.setEnd(this.root, this.root.childNodes.length)
+        range.deleteContents()
+        component[RENDER_TO_DOM](range)
+    }
+    [RENDER_TO_DOM](range: Range) {
+        range.deleteContents()
+        range.insertNode(this.root)
     }
 }
 class TextWrapper {
     root: Text
     constructor(content: string) {
         this.root = document.createTextNode(content)
+    }
+    [RENDER_TO_DOM](range: Range) {
+        range.deleteContents()
+        range.insertNode(this.root)
     }
 }
 
@@ -80,5 +114,9 @@ export function createElement(type: (new () => Component) | (() => Component) | 
     return element
 }
 export function render(component: Component, parent: HTMLElement) {
-    parent.appendChild(component.root)
+    const range = document.createRange()
+    range.setStart(parent, 0)
+    range.setEnd(parent, parent.childNodes.length)
+    range.deleteContents()
+    component.render()[RENDER_TO_DOM](range)
 }
