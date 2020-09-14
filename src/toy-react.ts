@@ -1,19 +1,33 @@
 
 const RENDER_TO_DOM = Symbol('render_to_dom')
 
-export abstract class Component<P = any, S = any> {
-    props: P = Object.create(null)
-    children = []
-    _root: null
-    _range: Range | null = null
-    state: S
+declare global {
+    namespace JSX {
+        interface IntrinsicElements extends Component<any, any> {
+            button: any
+            div: any
+            span: any
+            ol: any
+            li: any
 
-    abstract render()
+        }
+    }
+}
+
+export abstract class Component<P = any, S = {}> {
+    props: P = Object.create(null)
+    children: (Component | ElementWrapper | TextWrapper)[] = []
+    _root: null = null
+    _range: Range | null = null
+    state: S = {} as S
+
+    abstract render(): Component
 
     setAttribute(key: string, value: any) {
-        this.props[key] = value
+        const props = this.props as { [key: string]: any }
+        props[key] = value
     }
-    appendChild(component: Component) {
+    appendChild(component: Component | ElementWrapper | TextWrapper) {
         this.children.push(component)
     }
 
@@ -24,13 +38,15 @@ export abstract class Component<P = any, S = any> {
 
     rerender() {
         const oldRange = this._range
-        const range = document.createRange()
-        range.setStart(oldRange.startContainer, oldRange.startOffset)
-        range.setEnd(oldRange.startContainer, oldRange.startOffset)
-        this[RENDER_TO_DOM](range)
+        if (oldRange) {
+            const range = document.createRange()
+            range.setStart(oldRange.startContainer, oldRange.startOffset)
+            range.setEnd(oldRange.startContainer, oldRange.startOffset)
+            this[RENDER_TO_DOM](range)
 
-        oldRange.setStart(range.endContainer, range.endOffset)
-        oldRange.deleteContents()
+            oldRange.setStart(range.endContainer, range.endOffset)
+            oldRange.deleteContents()
+        }
     }
 
     setState(newState: Partial<S>) {
@@ -72,7 +88,7 @@ class ElementWrapper {
             this.root.setAttribute(key, value)
         }
     }
-    appendChild(component: Component) {
+    appendChild(component: Component | ElementWrapper | TextWrapper) {
         const range = document.createRange()
         range.setStart(this.root, this.root.childNodes.length)
         range.setEnd(this.root, this.root.childNodes.length)
@@ -95,8 +111,8 @@ class TextWrapper {
     }
 }
 
-export function createElement(type: (new () => Component) | (() => Component) | string, attrs: { [key: string]: any }, ...children) {
-    let element
+export function createElement(type: (new () => Component) | (() => Component) | string, attrs: { [key: string]: any }, ...children: (Component | string | number | null)[]) {
+    let element: Component | ElementWrapper
     if (typeof type === 'string') {
         element = new ElementWrapper(type)
     } else if (type.prototype instanceof Component) {
@@ -107,7 +123,7 @@ export function createElement(type: (new () => Component) | (() => Component) | 
     for (let attr in attrs) {
         element.setAttribute(attr, attrs[attr])
     }
-    const insertChild = (children) => {
+    const insertChild = (children: (Component | TextWrapper | string | number | null)[]) => {
         for (let child of children) {
             if (child === null) {
                 continue

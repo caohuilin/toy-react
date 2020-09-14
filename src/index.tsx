@@ -2,7 +2,12 @@ import { createElement, render, Component } from './toy-react';
 
 import './style.less'
 
-function Square(props) {
+
+interface ISquareProps {
+  value: string
+  onClick: () => void
+}
+function Square(props: ISquareProps) {
   return (
     <button className="square" onClick={props.onClick}>
       {props.value}
@@ -10,8 +15,12 @@ function Square(props) {
   );
 }
 
-class Board extends Component {
-  renderSquare(i) {
+interface IBoardProps {
+  squares: string[]
+  onClick: (index: number) => void
+}
+class Board extends Component<IBoardProps, {}> {
+  renderSquare(i: number) {
     return (
       <Square
         value={this.props.squares[i]}
@@ -43,7 +52,14 @@ class Board extends Component {
   }
 }
 
-class Game extends Component {
+interface IGameState {
+  history: Array<{
+    squares: string[]
+  }>
+  stepNumber: number
+  xIsNext: boolean
+}
+class Game extends Component<{}, IGameState> {
   constructor() {
     super();
     this.state = {
@@ -57,7 +73,7 @@ class Game extends Component {
     };
   }
 
-  handleClick(i) {
+  handleClick(i: number) {
     const history = this.state.history.slice(0, this.state.stepNumber + 1);
     const current = history[history.length - 1];
     const squares = current.squares.slice();
@@ -76,7 +92,7 @@ class Game extends Component {
     });
   }
 
-  jumpTo(step) {
+  jumpTo(step: number) {
     this.setState({
       stepNumber: step,
       xIsNext: (step % 2) === 0
@@ -111,7 +127,7 @@ class Game extends Component {
         <div className="game-board">
           <Board
             squares={current.squares}
-            onClick={i => this.handleClick(i)}
+            onClick={(i: number) => this.handleClick(i)}
           />
         </div>
         <div className="game-info">
@@ -127,7 +143,7 @@ class Game extends Component {
 
 render(<Game />, document.body);
 
-function calculateWinner(squares) {
+function calculateWinner(squares: string[]) {
   const lines = [
     [0, 1, 2],
     [3, 4, 5],
