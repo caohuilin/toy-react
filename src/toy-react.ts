@@ -17,11 +17,19 @@ declare global {
 export abstract class Component<P = any, S = {}> {
     props: P = Object.create(null)
     children: (Component | ElementWrapper | TextWrapper)[] = []
+    vChildren: Component[] = []
+    type: string = ''
+    content: string = ''
     _root: null = null
     _range: Range | null = null
+    _vdom: Component | null = null
     state: S = {} as S
 
     abstract render(): Component
+
+    get vDom(): Component {
+        return this.render().vDom
+    }
 
     setAttribute(key: string, value: any) {
         const props = this.props as { [key: string]: any }
@@ -33,25 +41,60 @@ export abstract class Component<P = any, S = {}> {
 
     [RENDER_TO_DOM](range: Range) {
         this._range = range
-        this.render()[RENDER_TO_DOM](range)
+        this._vdom = this.vDom
+        this._vdom[RENDER_TO_DOM](range)
     }
 
-    rerender() {
-        const oldRange = this._range
-        if (oldRange) {
-            const range = document.createRange()
-            range.setStart(oldRange.startContainer, oldRange.startOffset)
-            range.setEnd(oldRange.startContainer, oldRange.startOffset)
-            this[RENDER_TO_DOM](range)
-
-            oldRange.setStart(range.endContainer, range.endOffset)
-            oldRange.deleteContents()
+    update() {
+        // 判断两个节点本身是否相等
+        const isSameNode = (oldVDom: Component, newVDom: Component) => {
+            if (oldVDom.type !== newVDom.type) {
+                return false
+            }
+            for(let key in newVDom.props) {
+                if (newVDom.props[key] !== oldVDom.props[key]) {
+                    return false
+                }
+            }
+            if (Object.keys(oldVDom).length !== Object.keys(newVDom).length) {
+                return false
+            }
+            if(newVDom.type === '#text' && newVDom.content !== oldVDom.content) {
+                return false
+            }
+            return true
         }
+        const update = (oldVDom: Component, newVDom: Component) => {
+            if (!isSameNode(oldVDom, newVDom)) {
+                newVDom[RENDER_TO_DOM](oldVDom._range!)
+                return
+            }
+            newVDom._range = oldVDom._range
+            const newChildren = newVDom.vChildren
+            const oldChildren = oldVDom.vChildren
+            let tailRange = oldChildren[oldChildren.length - 1]._range
+            for(let i = 0; i < newChildren.length; i++) {
+                const newChild = newChildren[i]
+                if (i < oldChildren.length) {
+                    const oldChild = oldChildren[i]
+                    update(oldChild, newChild)
+                } else {
+                    const range = document.createRange()
+                    range.setStart(tailRange!.endContainer, tailRange!.endOffset)
+                    range.setEnd(tailRange!.endContainer, tailRange!.endOffset)
+                    newChild[RENDER_TO_DOM](range)
+                    tailRange = range
+                }
+            }
+        }
+        const vDom = this.vDom
+        update(this._vdom!, vDom)
+        this._vdom = vDom
     }
 
     setState(newState: Partial<S>) {
         this.state = Object.assign({}, this.state || {}, newState) as S
-        this.rerender()
+        this.update()
     }
 }
 
@@ -74,40 +117,69 @@ class FuncComponent extends Component {
     }
 }
 
-class ElementWrapper {
-    root: HTMLElement
+function replaceContent(range:Range, node: Node) {
+    range.insertNode(node)
+    range.setStartAfter(node)
+    range.deleteContents()
+
+    range.setStartBefore(node)
+    range.setEndAfter(node)
+}
+
+class ElementWrapper extends Component {
     constructor(type: string) {
-        this.root = document.createElement(type)
+        super()
+        this.type = type
     }
-    setAttribute(key: string, value: any) {
-        if (key === 'className') {
-            this.root.setAttribute('class', value)
-        } else if (key.match(/^on([\s\S]+)/)) {
-            this.root.addEventListener(RegExp.$1.replace(/^[\s\S]/, c => c.toLowerCase()), value)
-        } else {
-            this.root.setAttribute(key, value)
-        }
+
+    get vDom(): ElementWrapper {
+        this.vChildren = this.children.map(child => child.vDom)
+        return this
     }
-    appendChild(component: Component | ElementWrapper | TextWrapper) {
-        const range = document.createRange()
-        range.setStart(this.root, this.root.childNodes.length)
-        range.setEnd(this.root, this.root.childNodes.length)
-        range.deleteContents()
-        component[RENDER_TO_DOM](range)
+    render() {
+        return this
     }
     [RENDER_TO_DOM](range: Range) {
-        range.deleteContents()
-        range.insertNode(this.root)
+        this._range = range
+        const root = document.createElement(this.type)
+        for (const key in this.props) {
+            const value = this.props[key]
+            if (key === 'className') {
+                root.setAttribute('class', value)
+            } else if (key.match(/^on([\s\S]+)/)) {
+                root.addEventListener(RegExp.$1.replace(/^[\s\S]/, c => c.toLowerCase()), value)
+            } else {
+                root.setAttribute(key, value)
+            }
+        }
+        for (const child of this.vChildren) {
+            const childRange = document.createRange()
+            childRange.setStart(root, root.childNodes.length)
+            childRange.setEnd(root, root.childNodes.length)
+            childRange.deleteContents()
+            child[RENDER_TO_DOM](childRange)
+        }
+        replaceContent(range, root)
     }
 }
-class TextWrapper {
+class TextWrapper extends Component {
     root: Text
     constructor(content: string) {
+        super()
+        this.type = '#text'
+        this.content = content
         this.root = document.createTextNode(content)
     }
+    get vDom(): TextWrapper {
+        return this
+    }
+    render() {
+        return this
+    }
     [RENDER_TO_DOM](range: Range) {
-        range.deleteContents()
-        range.insertNode(this.root)
+        this._range = range
+        const root = document.createTextNode(this.content)
+        replaceContent(range, root)
     }
 }
 
