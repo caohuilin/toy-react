@@ -51,7 +51,7 @@ export abstract class Component<P = any, S = {}> {
             if (oldVDom.type !== newVDom.type) {
                 return false
             }
-            for(let key in newVDom.props) {
+            for (let key in newVDom.props) {
                 if (newVDom.props[key] !== oldVDom.props[key]) {
                     return false
                 }
@@ -59,7 +59,7 @@ export abstract class Component<P = any, S = {}> {
             if (Object.keys(oldVDom).length !== Object.keys(newVDom).length) {
                 return false
             }
-            if(newVDom.type === '#text' && newVDom.content !== oldVDom.content) {
+            if (newVDom.type === '#text' && newVDom.content !== oldVDom.content) {
                 return false
             }
             return true
@@ -72,8 +72,11 @@ export abstract class Component<P = any, S = {}> {
             newVDom._range = oldVDom._range
             const newChildren = newVDom.vChildren
             const oldChildren = oldVDom.vChildren
+            if (oldChildren.length === 0) {
+                return
+            }
             let tailRange = oldChildren[oldChildren.length - 1]._range
-            for(let i = 0; i < newChildren.length; i++) {
+            for (let i = 0; i < newChildren.length; i++) {
                 const newChild = newChildren[i]
                 if (i < oldChildren.length) {
                     const oldChild = oldChildren[i]
@@ -117,7 +120,7 @@ class FuncComponent extends Component {
     }
 }
 
-function replaceContent(range:Range, node: Node) {
+function replaceContent(range: Range, node: Node) {
     range.insertNode(node)
     range.setStartAfter(node)
     range.deleteContents()
